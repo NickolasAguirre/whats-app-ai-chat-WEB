@@ -1,3 +1,122 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+/*
+ * Design tokens. One accent (muted green), one cool-green neutral family.
+ * Radius rule: containers rounded-xl (12px), controls rounded-lg (8px), avatars rounded-xl.
+ * z-index scale: sticky header 20, drawer 40.
+ */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --canvas: #f3f6f4;
+  --surface: #fbfcfb;
+  --surface-sunken: #eaf0ed;
+  --line: #d6dfda;
+  --fg: #14201b;
+  --muted: #53635b;
+  --primary: #1f6f50;
+  --primary-hover: #185a41;
+  --primary-fg: #f4faf7;
+  --primary-soft: #dcede5;
+  --danger: #b3261e;
+  --danger-soft: #fbe4e1;
+  --shadow: 0 1px 2px rgb(20 48 36 / 0.06), 0 8px 24px -12px rgb(20 48 36 / 0.18);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #0c1311;
+  --surface: #121b18;
+  --surface-sunken: #0f1714;
+  --line: #25332d;
+  --fg: #e6ede9;
+  --muted: #9db0a7;
+  --primary: #5fc59a;
+  --primary-hover: #7ad3ae;
+  --primary-fg: #06231a;
+  --primary-soft: #173228;
+  --danger: #f2a39d;
+  --danger-soft: #3a1512;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --shadow-panel: var(--shadow);
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+input,
+textarea,
+select {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--line) 50%, var(--surface-sunken) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
