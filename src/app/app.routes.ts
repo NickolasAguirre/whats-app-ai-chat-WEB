@@ -6,7 +6,12 @@ export const routes: Routes = [
     path: '',
     component: Shell,
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'instructions' },
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      {
+        path: 'dashboard',
+        title: 'Resumen',
+        loadComponent: () => import('./features/dashboard/dashboard-page').then((m) => m.DashboardPage),
+      },
       {
         path: 'instructions',
         title: 'Instrucciones',

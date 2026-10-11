@@ -50,3 +50,45 @@ export interface NoteInput {
 }
 
 export type UploadEvent = { type: 'progress'; percent: number } | { type: 'done'; item: KnowledgeItem };
+
+export type StatsPeriod = 'day' | 'week' | 'month';
+
+export interface StatsSummary {
+  answered: number;
+  received: number;
+  people: number;
+  newPeople: number;
+  avgResponseSeconds: number;
+  failed: number;
+}
+
+export interface StatsPoint {
+  label: string;
+  description: string;
+  value: number;
+}
+
+export interface NumberStat {
+  numberId: string;
+  label: string;
+  phoneNumber: string;
+  answered: number;
+}
+
+export interface FailedMessage {
+  id: string;
+  at: Date;
+  personName: string;
+  reason: string;
+}
+
+export interface DashboardStats {
+  period: StatsPeriod;
+  summary: StatsSummary;
+  previous: Pick<StatsSummary, 'answered' | 'people' | 'avgResponseSeconds' | 'failed'>;
+  series: StatsPoint[];
+  byNumber: NumberStat[];
+  /** Messages answered over the last 4 weeks: 7 weekdays (Monday first) by 8 blocks of 3 hours. */
+  heatmap: number[][];
+  failedMessages: FailedMessage[];
+}

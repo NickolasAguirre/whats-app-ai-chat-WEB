@@ -7,6 +7,7 @@ export interface NavLink {
 }
 
 export const NAV_LINKS: readonly NavLink[] = [
+  { path: '/dashboard', label: 'Resumen', icon: 'dashboard' },
   { path: '/instructions', label: 'Instrucciones', icon: 'instructions' },
   { path: '/numbers', label: 'Números', icon: 'phone' },
   { path: '/conversations', label: 'Conversaciones', icon: 'chat' },
