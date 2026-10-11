@@ -28,3 +28,25 @@ export interface ConversationMessage {
   text: string;
   timestamp: Date;
 }
+
+export type KnowledgeFileKind = 'pdf' | 'spreadsheet' | 'image' | 'text';
+export type KnowledgeKind = KnowledgeFileKind | 'note';
+export type KnowledgeStatus = 'processing' | 'ready' | 'failed';
+
+export interface KnowledgeItem {
+  id: string;
+  kind: KnowledgeKind;
+  title: string;
+  status: KnowledgeStatus;
+  createdAt: Date;
+  sizeBytes?: number;
+  content?: string;
+  errorMessage?: string;
+}
+
+export interface NoteInput {
+  title: string;
+  content: string;
+}
+
+export type UploadEvent = { type: 'progress'; percent: number } | { type: 'done'; item: KnowledgeItem };

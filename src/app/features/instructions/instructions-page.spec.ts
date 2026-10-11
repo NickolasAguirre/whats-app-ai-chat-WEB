@@ -1,40 +1,39 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
-import { Instructions } from '../../core/domain/models/models';
 import { InstructionsApi } from '../../core/domain/ports/instructions-api.port';
+import { KnowledgeApi } from '../../core/domain/ports/knowledge-api.port';
 import { InstructionsPage } from './instructions-page';
 
 describe('InstructionsPage', () => {
-  const stored: Instructions = { content: 'Hola', updatedAt: new Date(2026, 9, 11) };
-
-  function setup() {
-    const api = { get: vi.fn(() => of(stored)), save: vi.fn((content: string) => of({ ...stored, content })) };
-    TestBed.configureTestingModule({ providers: [{ provide: InstructionsApi, useValue: api }] });
+  function setup(tab?: string) {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: InstructionsApi, useValue: { get: () => of({ content: 'Hola', updatedAt: new Date() }), save: vi.fn() } },
+        { provide: KnowledgeApi, useValue: { list: () => of([]), upload: vi.fn(), createNote: vi.fn(), updateNote: vi.fn(), remove: vi.fn() } },
+      ],
+    });
     const fixture = TestBed.createComponent(InstructionsPage);
-    return { api, fixture, element: fixture.nativeElement as HTMLElement };
+    if (tab) fixture.componentRef.setInput('tab', tab);
+    return { fixture, element: fixture.nativeElement as HTMLElement };
   }
 
-  it('loads the stored instructions into the textarea', async () => {
+  it('shows the editor by default', async () => {
     const { fixture, element } = setup();
     await fixture.whenStable();
-    const textarea = element.querySelector('textarea')!;
-    expect(textarea.value).toBe('Hola');
+    expect(element.querySelector('app-instructions-editor')).not.toBeNull();
+    expect(element.querySelector('app-knowledge-panel')).toBeNull();
+    expect(element.querySelector('#tab-instructions')?.getAttribute('aria-selected')).toBe('true');
   });
 
-  it('enables saving only after the text changes, then saves it', async () => {
-    const { api, fixture, element } = setup();
+  it('opens the knowledge tab from the query parameter and switches on click', async () => {
+    const { fixture, element } = setup('knowledge');
     await fixture.whenStable();
-    const submit = element.querySelector<HTMLButtonElement>('button[type=submit]')!;
-    expect(submit.disabled).toBe(true);
+    expect(element.querySelector('app-knowledge-panel')).not.toBeNull();
 
-    const textarea = element.querySelector('textarea')!;
-    textarea.value = 'Hola, bienvenido';
-    textarea.dispatchEvent(new Event('input'));
+    element.querySelector<HTMLButtonElement>('#tab-instructions')!.click();
     await fixture.whenStable();
-    expect(submit.disabled).toBe(false);
-
-    element.querySelector('form')!.dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-    expect(api.save).toHaveBeenCalledWith('Hola, bienvenido');
+    expect(element.querySelector('app-instructions-editor')).not.toBeNull();
   });
 });
