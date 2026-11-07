@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { DashboardStats, StatsPeriod } from '../../core/domain/models/models';
+import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
 import { StatsApi } from '../../core/domain/ports/stats-api.port';
+import { provideRouter } from '@angular/router';
 import { DashboardPage } from './dashboard-page';
 
 function statsFor(period: StatsPeriod, answered: number): DashboardStats {
@@ -19,7 +21,13 @@ function statsFor(period: StatsPeriod, answered: number): DashboardStats {
 describe('DashboardPage', () => {
   function setup() {
     const api = { get: vi.fn((period: StatsPeriod) => of(statsFor(period, period === 'day' ? 430 : 3100))) };
-    TestBed.configureTestingModule({ providers: [{ provide: StatsApi, useValue: api }] });
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: StatsApi, useValue: api },
+        { provide: ConversationsApi, useValue: { listPeople: () => of([]) } },
+      ],
+    });
     const fixture = TestBed.createComponent(DashboardPage);
     return { api, fixture, element: fixture.nativeElement as HTMLElement };
   }

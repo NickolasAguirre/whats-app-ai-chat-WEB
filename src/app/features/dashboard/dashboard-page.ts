@@ -12,6 +12,7 @@ import { formatDuration, formatInt, formatPercent } from '../../shared/format-nu
 import { Icon } from '../../shared/icon';
 import { PageHeader } from '../../shared/page-header';
 import { StatusMessage } from '../../shared/status-message';
+import { RecentConversations } from './recent-conversations';
 
 interface PeriodOption {
   id: StatsPeriod;
@@ -30,7 +31,7 @@ const PERIODS: readonly PeriodOption[] = [
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [DatePipe, BarListChart, ColumnChart, HeatmapChart, Icon, PageHeader, StatTile, StatusMessage],
+  imports: [DatePipe, BarListChart, ColumnChart, HeatmapChart, Icon, PageHeader, RecentConversations, StatTile, StatusMessage],
   template: `
     <app-page-header title="Resumen" [subtitle]="option().description" />
 
@@ -77,13 +78,17 @@ const PERIODS: readonly PeriodOption[] = [
           <app-stat-tile label="Sin respuesta" [value]="kpis().failed" [delta]="kpis().failedDelta" hint="Mensajes que fallaron" />
         </div>
 
-        <app-column-chart
-          [title]="option().chartTitle"
-          [subtitle]="option().description"
-          [points]="stats()!.series"
-          [ariaLabel]="option().chartTitle + '. ' + option().description"
-          [columnHeader]="option().columnHeader"
-        />
+        <div class="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <app-recent-conversations class="min-w-0 lg:col-start-2 lg:row-start-1" />
+          <app-column-chart
+            class="min-w-0 lg:col-start-1 lg:row-start-1"
+            [title]="option().chartTitle"
+            [subtitle]="option().description"
+            [points]="stats()!.series"
+            [ariaLabel]="option().chartTitle + '. ' + option().description"
+            [columnHeader]="option().columnHeader"
+          />
+        </div>
 
         <div class="grid gap-6 lg:grid-cols-2">
           <app-heatmap-chart

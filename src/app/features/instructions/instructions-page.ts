@@ -29,8 +29,8 @@ const TABS: readonly { id: TabId; label: string }[] = [
           [attr.aria-selected]="active() === tab.id"
           [attr.aria-controls]="'panel-' + tab.id"
           [attr.tabindex]="active() === tab.id ? 0 : -1"
-          class="-mb-px min-h-11 border-b-2 px-4 font-medium transition active:scale-[0.98]"
-          [class]="active() === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-fg'"
+          class="relative -mb-px min-h-11 px-4 font-medium transition after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:origin-center after:rounded-full after:bg-primary after:transition-transform after:duration-300 after:ease-out after:content-[''] active:scale-[0.98]"
+          [class]="active() === tab.id ? 'text-primary after:scale-x-100' : 'text-muted after:scale-x-0 hover:text-fg'"
           (click)="select(tab.id)"
         >
           {{ tab.label }}
@@ -39,11 +39,11 @@ const TABS: readonly { id: TabId; label: string }[] = [
     </div>
 
     @if (active() === 'instructions') {
-      <div role="tabpanel" id="panel-instructions" aria-labelledby="tab-instructions" tabindex="0">
+      <div role="tabpanel" id="panel-instructions" aria-labelledby="tab-instructions" tabindex="0" animate.enter="tab-enter">
         <app-instructions-editor />
       </div>
     } @else {
-      <div role="tabpanel" id="panel-knowledge" aria-labelledby="tab-knowledge" tabindex="0">
+      <div role="tabpanel" id="panel-knowledge" aria-labelledby="tab-knowledge" tabindex="0" animate.enter="tab-enter">
         <app-knowledge-panel />
       </div>
     }

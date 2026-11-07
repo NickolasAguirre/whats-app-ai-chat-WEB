@@ -1,12 +1,32 @@
 import { Routes } from '@angular/router';
-import { Shell } from './layout/shell';
+import { ConversationsApi } from './core/domain/ports/conversations-api.port';
+import { InstructionsApi } from './core/domain/ports/instructions-api.port';
+import { KnowledgeApi } from './core/domain/ports/knowledge-api.port';
+import { StatsApi } from './core/domain/ports/stats-api.port';
+import { WhatsAppNumbersApi } from './core/domain/ports/whatsapp-numbers-api.port';
+import { MockConversationsApi } from './infrastructure/mock/mock-conversations-api';
+import { MockInstructionsApi } from './infrastructure/mock/mock-instructions-api';
+import { MockKnowledgeApi } from './infrastructure/mock/mock-knowledge-api';
+import { MockStatsApi } from './infrastructure/mock/mock-stats-api';
+import { MockWhatsAppNumbersApi } from './infrastructure/mock/mock-whatsapp-numbers-api';
 
+/**
+ * Business screens of the bot panel. This file is what the module exposes to the layout container
+ * (`./Routes` in federation.config.mjs), which mounts it inside its shell. It owns its data providers, so it
+ * works wherever it is mounted. Layout, login, session and theme belong to the container.
+ */
 export const routes: Routes = [
+  { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   {
     path: '',
-    component: Shell,
+    providers: [
+      { provide: InstructionsApi, useClass: MockInstructionsApi },
+      { provide: WhatsAppNumbersApi, useClass: MockWhatsAppNumbersApi },
+      { provide: ConversationsApi, useClass: MockConversationsApi },
+      { provide: KnowledgeApi, useClass: MockKnowledgeApi },
+      { provide: StatsApi, useClass: MockStatsApi },
+    ],
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
         path: 'dashboard',
         title: 'Resumen',
@@ -38,11 +58,6 @@ export const routes: Routes = [
         title: 'Conversación',
         loadComponent: () =>
           import('./features/conversations/conversation-thread-page').then((m) => m.ConversationThreadPage),
-      },
-      {
-        path: '**',
-        title: 'No encontrado',
-        loadComponent: () => import('./features/not-found-page').then((m) => m.NotFoundPage),
       },
     ],
   },

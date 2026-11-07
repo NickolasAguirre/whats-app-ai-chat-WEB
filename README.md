@@ -8,7 +8,7 @@ Por ahora trabaja con datos de demostración (adapters mock). Cuando el bot expo
 
 ```bash
 npm install
-npm start          # http://localhost:4200
+npm start          # http://localhost:4201
 npm test           # Vitest
 npm run build      # salida en dist/
 ```
