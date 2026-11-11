@@ -1,6 +1,8 @@
 export interface Instructions {
   content: string;
-  updatedAt: Date;
+  /** Null while the bot still uses the default behaviour (nothing saved yet). */
+  updatedAt: Date | null;
+  isDefault: boolean;
 }
 
 export interface WhatsAppNumber {

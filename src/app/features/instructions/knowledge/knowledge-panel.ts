@@ -19,6 +19,7 @@ interface UploadTask {
   file: File;
   percent: number;
   state: 'uploading' | 'error';
+  message?: string;
 }
 
 const KIND_ICON: Record<KnowledgeKind, IconName> = {
@@ -95,6 +96,9 @@ const KIND_LABEL: Record<KnowledgeKind, string> = {
                 ></div>
               </div>
               @if (task.state === 'error') {
+                @if (task.message) {
+                  <p class="text-sm text-danger">{{ task.message }}</p>
+                }
                 <button
                   type="button"
                   class="min-h-11 self-start rounded-lg px-3 text-sm font-medium text-muted transition hover:bg-primary-soft hover:text-fg"
@@ -258,8 +262,8 @@ export class KnowledgePanel {
             this.api.upload(task.file).pipe(
               tap((event) => (event.type === 'progress' ? this.patchTask(task.id, { percent: event.percent }) : this.finishTask(task))),
               ignoreElements(),
-              catchError(() => {
-                this.patchTask(task.id, { state: 'error' });
+              catchError((error: unknown) => {
+                this.patchTask(task.id, { state: 'error', message: error instanceof Error ? error.message : undefined });
                 return EMPTY;
               }),
             ),
@@ -361,9 +365,9 @@ export class KnowledgePanel {
         this.items.reload();
         this.announcement.set(successMessage);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.noteSaving.set(false);
-        this.noteError.set('No se pudo guardar la nota. Inténtalo de nuevo.');
+        this.noteError.set(error instanceof Error && error.message ? error.message : 'No se pudo guardar la nota. Inténtalo de nuevo.');
       },
     });
   }

@@ -5,8 +5,8 @@ import { KnowledgeApi } from './core/domain/ports/knowledge-api.port';
 import { StatsApi } from './core/domain/ports/stats-api.port';
 import { WhatsAppNumbersApi } from './core/domain/ports/whatsapp-numbers-api.port';
 import { MockConversationsApi } from './infrastructure/mock/mock-conversations-api';
-import { MockInstructionsApi } from './infrastructure/mock/mock-instructions-api';
-import { MockKnowledgeApi } from './infrastructure/mock/mock-knowledge-api';
+import { HttpInstructionsApi } from './infrastructure/http/http-instructions-api';
+import { HttpKnowledgeApi } from './infrastructure/http/http-knowledge-api';
 import { MockStatsApi } from './infrastructure/mock/mock-stats-api';
 import { MockWhatsAppNumbersApi } from './infrastructure/mock/mock-whatsapp-numbers-api';
 
@@ -20,10 +20,10 @@ export const routes: Routes = [
   {
     path: '',
     providers: [
-      { provide: InstructionsApi, useClass: MockInstructionsApi },
+      { provide: InstructionsApi, useClass: HttpInstructionsApi },
       { provide: WhatsAppNumbersApi, useClass: MockWhatsAppNumbersApi },
       { provide: ConversationsApi, useClass: MockConversationsApi },
-      { provide: KnowledgeApi, useClass: MockKnowledgeApi },
+      { provide: KnowledgeApi, useClass: HttpKnowledgeApi },
       { provide: StatsApi, useClass: MockStatsApi },
     ],
     children: [

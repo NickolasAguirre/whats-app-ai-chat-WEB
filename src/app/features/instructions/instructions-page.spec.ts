@@ -10,7 +10,7 @@ describe('InstructionsPage', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: InstructionsApi, useValue: { get: () => of({ content: 'Hola', updatedAt: new Date() }), save: vi.fn() } },
+        { provide: InstructionsApi, useValue: { get: () => of({ content: 'Hola', updatedAt: new Date(), isDefault: false }), save: vi.fn() } },
         { provide: KnowledgeApi, useValue: { list: () => of([]), upload: vi.fn(), createNote: vi.fn(), updateNote: vi.fn(), remove: vi.fn() } },
       ],
     });

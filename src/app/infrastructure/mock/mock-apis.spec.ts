@@ -10,6 +10,14 @@ describe('MockInstructionsApi', () => {
     const current = await firstValueFrom(api.get());
     expect(current.content).toBe('Nuevas instrucciones');
   });
+
+  it('goes back to the default behaviour on reset', async () => {
+    const api = new MockInstructionsApi();
+    await firstValueFrom(api.save('Nuevas instrucciones'));
+    const reset = await firstValueFrom(api.reset());
+    expect(reset).toMatchObject({ isDefault: true, updatedAt: null });
+    expect((await firstValueFrom(api.get())).content).toContain('español');
+  });
 });
 
 describe('MockWhatsAppNumbersApi', () => {

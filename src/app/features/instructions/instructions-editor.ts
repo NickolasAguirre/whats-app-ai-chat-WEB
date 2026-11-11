@@ -7,7 +7,7 @@ import { InstructionsApi } from '../../core/domain/ports/instructions-api.port';
 import { Icon } from '../../shared/icon';
 import { StatusMessage } from '../../shared/status-message';
 
-const MAX_LENGTH = 4000;
+const MAX_LENGTH = 8000;
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -59,11 +59,23 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
                 }
                 @case ('error') { <span class="font-medium text-danger">No se pudo guardar. Inténtalo de nuevo.</span> }
                 @default {
-                  @if (instructions.value(); as current) { Última actualización: {{ current.updatedAt | date: 'medium' }} }
+                  @if (instructions.value(); as current) {
+                    @if (current.updatedAt; as updatedAt) { Última actualización: {{ updatedAt | date: 'medium' }} } @else { Usando el comportamiento por defecto }
+                  }
                 }
               }
             </p>
             <div class="flex gap-2">
+              @if (!instructions.value()?.isDefault) {
+                <button
+                  type="button"
+                  class="min-h-11 flex-1 rounded-lg px-4 font-medium text-muted transition hover:bg-primary-soft hover:text-fg active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
+                  [disabled]="saveState() === 'saving'"
+                  (click)="restoreDefault()"
+                >
+                  Restaurar valor por defecto
+                </button>
+              }
               <button
                 type="button"
                 class="min-h-11 flex-1 rounded-lg px-4 font-medium text-muted transition hover:bg-primary-soft hover:text-fg active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
@@ -130,6 +142,17 @@ export class InstructionsEditor {
       return undefined;
     }).then((submitted) => {
       if (!submitted) this.saveState.set('idle');
+    });
+  }
+
+  protected restoreDefault(): void {
+    this.saveState.set('saving');
+    this.api.reset().subscribe({
+      next: () => {
+        this.instructions.reload();
+        this.saveState.set('saved');
+      },
+      error: () => this.saveState.set('error'),
     });
   }
 
