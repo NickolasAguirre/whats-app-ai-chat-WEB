@@ -31,6 +31,12 @@ export interface ConversationMessage {
   timestamp: Date;
 }
 
+/** A range of instants: `from` is included, `to` is excluded. */
+export interface DateRange {
+  from?: Date;
+  to?: Date;
+}
+
 export interface MessagesQuery {
   /** Include messages from this instant. */
   from?: Date;

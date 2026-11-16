@@ -29,6 +29,27 @@ describe('HttpConversationsApi', () => {
     ]);
   });
 
+  it('lists people inside a date range, sending both ends as ISO instants', () => {
+    const { api, http } = setup();
+    api.listPeople('', { from: new Date('2026-11-15T05:00:00.000Z'), to: new Date('2026-11-16T05:00:00.000Z') }).subscribe();
+
+    const request = http.expectOne((req) => req.url === `${BASE}/admin/people`);
+    expect(request.request.params.get('from')).toBe('2026-11-15T05:00:00.000Z');
+    expect(request.request.params.get('to')).toBe('2026-11-16T05:00:00.000Z');
+    expect(request.request.params.has('search')).toBe(false);
+    request.flush([]);
+  });
+
+  it('lists people without a range as before', () => {
+    const { api, http } = setup();
+    api.listPeople('maria').subscribe();
+
+    const request = http.expectOne((req) => req.url === `${BASE}/admin/people`);
+    expect(request.request.params.get('search')).toBe('maria');
+    expect(request.request.params.has('from')).toBe(false);
+    request.flush([]);
+  });
+
   it('sends range, cursor and limit, and returns the page oldest to newest', () => {
     const { api, http } = setup();
     let page: MessagesPage | undefined;

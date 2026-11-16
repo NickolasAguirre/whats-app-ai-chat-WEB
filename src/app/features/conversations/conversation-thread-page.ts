@@ -1,55 +1,31 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import { Component, DestroyRef, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { form, FormField } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import { EMPTY, catchError, map, switchMap, timer } from 'rxjs';
 import { APP_PATHS } from '../../app-paths';
-import { ConversationMessage, MessagesQuery } from '../../core/domain/models/models';
+import { ConversationMessage } from '../../core/domain/models/models';
 import { CasesApi } from '../../core/domain/ports/cases-api.port';
 import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
 import { Avatar } from '../../shared/avatar';
 import { BackLink } from '../../shared/back-link';
+import { startOfToday } from '../../shared/date-range';
 import { StatusMessage } from '../../shared/status-message';
 
 const POLL_INTERVAL_MS = 5000;
-/** The first load takes the whole range of today (up to the server maximum); older pages are smaller. */
+/** The first load takes the whole of today (up to the server maximum); older pages are smaller. */
 const FIRST_PAGE_SIZE = 100;
 const OLDER_PAGE_SIZE = 30;
 const MAX_CASE_SUMMARY = 500;
 
-interface DateFilter {
-  from: string;
-  to: string;
-}
-
 interface Paging {
   /** Cursor of the oldest message loaded so far. */
   cursor: string | null;
-  /** True while the next page still has to stay inside the first range (today, or the applied filter). */
+  /** True while the next page still has to stay inside today (today has more than the first page held). */
   bounded: boolean;
   /** True when there is nothing older to load. */
   exhausted: boolean;
-}
-
-function startOfToday(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
-/** `YYYY-MM-DD` from a date input, read as the start of that day in the browser's time zone. */
-function parseDay(value: string): Date | undefined {
-  if (!value) return undefined;
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-/** The range the filter asks for; "Hasta" is inclusive, so it ends at the start of the next day. */
-function filterRange(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
-  const from = parseDay(filter.from);
-  const lastDay = parseDay(filter.to);
-  const to = lastDay ? new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() + 1) : undefined;
-  return { from, to };
 }
 
 @Component({
@@ -113,30 +89,7 @@ function filterRange(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
       }
     </section>
 
-    <form class="mb-5 flex flex-wrap items-end gap-3" (submit)="applyFilter($event)" aria-label="Filtrar mensajes por fecha">
-      <div class="flex flex-col gap-1">
-        <label for="from" class="text-sm font-medium">Desde</label>
-        <input id="from" type="date" class="min-h-11 rounded-lg border border-line bg-surface px-3" [formField]="filterForm.from" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="to" class="text-sm font-medium">Hasta</label>
-        <input id="to" type="date" class="min-h-11 rounded-lg border border-line bg-surface px-3" [formField]="filterForm.to" />
-      </div>
-      <button type="submit" class="min-h-11 rounded-lg bg-primary px-4 font-medium text-primary-fg">Filtrar</button>
-      @if (isFiltered()) {
-        <button type="button" class="min-h-11 rounded-lg border border-line px-4 font-medium" (click)="clearFilter()">
-          Ver solo hoy
-        </button>
-      }
-    </form>
-
-    @if (filterError(); as problem) {
-      <p role="alert" class="mb-4 text-sm text-danger">{{ problem }}</p>
-    }
-
-    <p class="mb-3 text-sm text-muted">
-      {{ isFiltered() ? 'Mostrando los mensajes del rango elegido.' : 'Mostrando los mensajes de hoy.' }}
-    </p>
+    <p class="mb-3 text-sm text-muted">Mostrando los mensajes de hoy.</p>
 
     @if (firstPage.isLoading()) {
       <app-status-message kind="loading" text="Cargando mensajes" [count]="3" />
@@ -168,8 +121,8 @@ function filterRange(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
       @if (messages().length === 0) {
         <app-status-message
           kind="empty"
-          [text]="isFiltered() ? 'No hay mensajes en ese rango' : 'No hay mensajes de hoy'"
-          [hint]="paging().exhausted ? '' : 'Puedes cargar los mensajes anteriores o elegir otras fechas.'"
+          text="No hay mensajes de hoy"
+          [hint]="paging().exhausted ? '' : 'Carga los mensajes anteriores para ver el resto de la conversación.'"
         />
       } @else {
         <ol class="flex flex-col gap-4 rounded-xl bg-sunken p-4 sm:p-6" aria-label="Mensajes de la conversación">
@@ -209,18 +162,10 @@ export class ConversationThreadPage {
     stream: ({ params }) => this.api.getPerson(params),
   });
 
-  private readonly filterModel = signal<DateFilter>({ from: '', to: '' });
-  protected readonly filterForm = form(this.filterModel);
-  /** The filter that is actually applied; the form may hold something the user has not submitted yet. */
-  private readonly appliedFilter = signal<DateFilter>({ from: '', to: '' });
-  protected readonly filterError = signal('');
-  protected readonly isFiltered = computed(() => !!(this.appliedFilter().from || this.appliedFilter().to));
-
-  /** Today's messages, or the filtered range. Reloads when the person or the filter changes. */
+  /** Today's messages. Reloads when another person is opened. */
   protected readonly firstPage = rxResource({
-    params: () => ({ personId: this.personId(), filter: this.appliedFilter() }),
-    stream: ({ params }) =>
-      this.api.listMessages(params.personId, { ...this.rangeFor(params.filter), limit: FIRST_PAGE_SIZE }),
+    params: () => this.personId(),
+    stream: ({ params }) => this.api.listMessages(params, { from: startOfToday(), limit: FIRST_PAGE_SIZE }),
   });
 
   protected readonly messages = linkedSignal<ConversationMessage[]>(() => this.firstPage.value()?.items ?? []);
@@ -228,10 +173,8 @@ export class ConversationThreadPage {
   protected readonly paging = linkedSignal<Paging>(() => {
     const page = this.firstPage.value();
     if (!page) return { cursor: null, bounded: true, exhausted: false };
-    // Filtered: the range is all there is. Today: when today is complete, older days may still exist.
-    return this.isFiltered()
-      ? { cursor: page.cursor, bounded: true, exhausted: !page.hasMore }
-      : { cursor: page.cursor, bounded: page.hasMore, exhausted: false };
+    // When today is complete, older days may still exist: the next click goes to them.
+    return { cursor: page.cursor, bounded: page.hasMore, exhausted: false };
   });
 
   // Everything about "Registrar caso" belongs to the open conversation: opening another person starts it clean.
@@ -261,22 +204,20 @@ export class ConversationThreadPage {
   protected readonly loadMoreFailed = signal(false);
 
   constructor() {
-    // Poll only the newest messages, and only while looking at today (a filtered range does not change).
-    toObservable(computed(() => ({ personId: this.personId(), live: !this.isFiltered() })))
+    // Poll only the newest messages, so a conversation that is happening keeps updating.
+    toObservable(this.personId)
       .pipe(
-        switchMap(({ personId, live }) =>
-          live
-            ? timer(POLL_INTERVAL_MS, POLL_INTERVAL_MS).pipe(
-                switchMap(() => this.pollNewest(personId)),
-                map((items) => ({ personId, items })),
-              )
-            : EMPTY,
+        switchMap((personId) =>
+          timer(POLL_INTERVAL_MS, POLL_INTERVAL_MS).pipe(
+            switchMap(() => this.pollNewest(personId)),
+            map((items) => ({ personId, items })),
+          ),
         ),
         takeUntilDestroyed(inject(DestroyRef)),
       )
       .subscribe(({ personId, items }) => {
-        // A poll that was in flight when the person or the filter changed must not leak into the new view.
-        if (personId === this.personId() && !this.isFiltered()) this.appendNew(items);
+        // A poll that was in flight when another person was opened must not leak into the new view.
+        if (personId === this.personId()) this.appendNew(items);
       });
   }
 
@@ -319,43 +260,21 @@ export class ConversationThreadPage {
     this.caseModel.set({ summary: '' });
   }
 
-  protected applyFilter(event: Event): void {
-    event.preventDefault();
-    const { from, to } = this.filterModel();
-    if (from && to && from > to) {
-      this.filterError.set('La fecha "Desde" debe ser anterior o igual a "Hasta".');
-      return;
-    }
-    this.filterError.set('');
-    const applied = this.appliedFilter();
-    if (applied.from === from && applied.to === to) return;
-    this.loadMoreFailed.set(false);
-    this.appliedFilter.set({ from, to });
-  }
-
-  protected clearFilter(): void {
-    this.filterError.set('');
-    this.loadMoreFailed.set(false);
-    this.filterModel.set({ from: '', to: '' });
-    this.appliedFilter.set({ from: '', to: '' });
-  }
-
   protected loadEarlier(): void {
     const state = this.paging();
     const personId = this.personId();
     const base = this.firstPage.value();
     if (this.loadingMore() || state.exhausted) return;
 
-    const range = this.rangeFor(this.appliedFilter());
-    // The page is stale when the person, the filter or a reload replaced the list this request was built on.
+    // The page is stale when another person or a reload replaced the list this request was built on.
     const isStale = () => personId !== this.personId() || base !== this.firstPage.value();
     this.loadingMore.set(true);
     this.loadMoreFailed.set(false);
 
     this.api
       .listMessages(personId, {
-        from: state.bounded ? range.from : undefined,
-        to: range.to,
+        // While today still has more, stay inside it; afterwards go to older days.
+        from: state.bounded ? startOfToday() : undefined,
         before: state.cursor ?? undefined,
         limit: OLDER_PAGE_SIZE,
       })
@@ -365,9 +284,7 @@ export class ConversationThreadPage {
           if (isStale()) return;
           this.messages.update((current) => [...page.items, ...current]);
           const cursor = page.cursor ?? state.cursor;
-          if (this.isFiltered()) {
-            this.paging.set({ cursor, bounded: true, exhausted: !page.hasMore });
-          } else if (state.bounded) {
+          if (state.bounded) {
             // Finished today's range: the next click goes to older days.
             this.paging.set({ cursor, bounded: page.hasMore, exhausted: false });
           } else {
@@ -379,10 +296,6 @@ export class ConversationThreadPage {
           if (!isStale()) this.loadMoreFailed.set(true);
         },
       });
-  }
-
-  private rangeFor(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
-    return filter.from || filter.to ? filterRange(filter) : { from: startOfToday() };
   }
 
   private pollNewest(personId: string) {

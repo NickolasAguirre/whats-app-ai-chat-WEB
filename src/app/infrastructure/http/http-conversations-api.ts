@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
-import { ConversationMessage, MessagesPage, MessagesQuery, MessageRole, Person } from '../../core/domain/models/models';
+import { ConversationMessage, DateRange, MessagesPage, MessagesQuery, MessageRole, Person } from '../../core/domain/models/models';
 import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
 import { toApiError } from './api-error';
 import { BOT_API_URL } from './bot-api-url';
@@ -42,9 +42,12 @@ export class HttpConversationsApi extends ConversationsApi {
   private readonly http = inject(HttpClient);
   private readonly url = `${inject(BOT_API_URL)}/admin/people`;
 
-  override listPeople(search: string): Observable<Person[]> {
+  override listPeople(search: string, range: DateRange = {}): Observable<Person[]> {
     const term = search.trim();
-    const params = term ? new HttpParams().set('search', term) : new HttpParams();
+    let params = new HttpParams();
+    if (term) params = params.set('search', term);
+    if (range.from) params = params.set('from', range.from.toISOString());
+    if (range.to) params = params.set('to', range.to.toISOString());
     return this.http.get<PersonDto[]>(this.url, { params }).pipe(
       map((people) => people.map(toPerson)),
       catchError((error) => throwError(() => toApiError(error))),
