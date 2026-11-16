@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { ConversationMessage, MessagesPage, MessagesQuery } from '../../core/domain/models/models';
+import { CasesApi } from '../../core/domain/ports/cases-api.port';
 import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
 import { ConversationThreadPage } from './conversation-thread-page';
 
@@ -30,7 +31,10 @@ describe('ConversationThreadPage', () => {
       getPerson: vi.fn(() => of({ id: 'p1', phoneNumber: '+57 300 000 0001', lastMessageAt: new Date(), lastMessagePreview: '' })),
       listMessages: vi.fn(listMessages),
     };
-    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: ConversationsApi, useValue: api }] });
+    const cases = { create: vi.fn() };
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: ConversationsApi, useValue: api }, { provide: CasesApi, useValue: cases }],
+    });
     const fixture = TestBed.createComponent(ConversationThreadPage);
     fixture.componentRef.setInput('personId', 'p1');
     const element = fixture.nativeElement as HTMLElement;
@@ -41,7 +45,7 @@ describe('ConversationThreadPage', () => {
       await fixture.whenStable();
       fixture.detectChanges();
     };
-    return { api, fixture, element, button, settle };
+    return { api, cases, fixture, element, button, settle };
   }
 
   it("loads only today's messages first", async () => {
@@ -267,5 +271,113 @@ describe('ConversationThreadPage', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  describe('Registrar caso', () => {
+    function open(element: HTMLElement, text: string, fixture: { detectChanges: () => void }) {
+      const input = element.querySelector<HTMLInputElement>('#case-summary')!;
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      input.form!.dispatchEvent(new Event('submit'));
+    }
+
+    it('registers a case for this person and links to it', async () => {
+      const { cases, element, fixture, button, settle } = setup(() => of(page([message('a', 5)], false)));
+      cases.create.mockReturnValue(of({ id: 'case-9' }));
+      await settle();
+
+      button('Registrar caso')!.click();
+      await settle();
+      open(element, '  No pudo pagar  ', fixture);
+      await settle();
+
+      expect(cases.create).toHaveBeenCalledWith('p1', 'No pudo pagar');
+      expect(element.querySelector('[role=status]')?.textContent).toContain('Caso registrado');
+      expect(element.querySelector('a[href="/whatsapp/cases/case-9"]')).not.toBeNull();
+      expect(button('Registrar caso')).toBeUndefined();
+    });
+
+    it('asks for a summary and does not call the bot with an empty one', async () => {
+      const { cases, element, fixture, button, settle } = setup(() => of(page([], false)));
+      await settle();
+
+      button('Registrar caso')!.click();
+      await settle();
+      open(element, '   ', fixture);
+      await settle();
+
+      expect(cases.create).not.toHaveBeenCalled();
+      expect(element.querySelector('[role=alert]')?.textContent).toContain('Describe qué debe resolver');
+    });
+
+    it('shows the error from the bot and keeps the form open', async () => {
+      const { cases, element, fixture, button, settle } = setup(() => of(page([], false)));
+      cases.create.mockReturnValue(throwError(() => new Error('Persona no encontrada.')));
+      await settle();
+
+      button('Registrar caso')!.click();
+      await settle();
+      open(element, 'Algo', fixture);
+      await settle();
+
+      expect(element.querySelector('[role=alert]')?.textContent).toContain('Persona no encontrada.');
+      expect(element.querySelector('#case-summary')).not.toBeNull();
+    });
+
+    it('forgets the registered case and the open form when another person is opened', async () => {
+      const { cases, element, fixture, button, settle } = setup(() => of(page([message('a', 5)], false)));
+      cases.create.mockReturnValue(of({ id: 'case-9' }));
+      await settle();
+
+      button('Registrar caso')!.click();
+      await settle();
+      open(element, 'Primero', fixture);
+      await settle();
+      expect(element.querySelector('a[href="/whatsapp/cases/case-9"]')).not.toBeNull();
+
+      fixture.componentRef.setInput('personId', 'p2');
+      await settle();
+      expect(element.querySelector('a[href="/whatsapp/cases/case-9"]')).toBeNull();
+      expect(button('Registrar caso')).toBeDefined();
+
+      button('Registrar caso')!.click();
+      await settle();
+      open(element, 'Segundo', fixture);
+      await settle();
+      expect(cases.create).toHaveBeenLastCalledWith('p2', 'Segundo');
+    });
+
+    it('ignores a late answer for the previous person', async () => {
+      const late = new Subject<{ id: string }>();
+      const { cases, element, fixture, button, settle } = setup(() => of(page([message('a', 5)], false)));
+      cases.create.mockReturnValue(late);
+      await settle();
+
+      button('Registrar caso')!.click();
+      await settle();
+      open(element, 'Para la primera', fixture);
+      fixture.componentRef.setInput('personId', 'p2');
+      await settle();
+      late.next({ id: 'case-late' });
+      late.complete();
+      await settle();
+
+      expect(element.querySelector('a[href="/whatsapp/cases/case-late"]')).toBeNull();
+      expect(button('Registrar caso')).toBeDefined();
+    });
+
+    it('cancel closes the form without saving', async () => {
+      const { cases, element, button, settle } = setup(() => of(page([], false)));
+      await settle();
+
+      button('Registrar caso')!.click();
+      await settle();
+      button('Cancelar')!.click();
+      await settle();
+
+      expect(cases.create).not.toHaveBeenCalled();
+      expect(element.querySelector('#case-summary')).toBeNull();
+      expect(button('Registrar caso')).toBeDefined();
+    });
   });
 });

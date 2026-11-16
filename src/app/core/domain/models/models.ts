@@ -113,3 +113,29 @@ export interface DashboardStats {
   heatmap: number[][];
   failedMessages: FailedMessage[];
 }
+
+export type CaseStatus = 'open' | 'in_progress' | 'resolved';
+export type CaseSource = 'ai' | 'manual';
+
+/** A case the AI could not solve, handled by hand by the call center. */
+export interface SupportCase {
+  id: string;
+  personId: string;
+  personName?: string;
+  personPhone: string;
+  summary: string;
+  status: CaseStatus;
+  source: CaseSource;
+  assignee?: string;
+  note?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt: Date | null;
+}
+
+export interface CasePatch {
+  status?: CaseStatus;
+  /** An empty string clears the value. */
+  note?: string;
+  assignee?: string;
+}

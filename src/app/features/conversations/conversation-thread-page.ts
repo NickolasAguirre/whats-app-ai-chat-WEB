@@ -2,9 +2,11 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource, takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { form, FormField } from '@angular/forms/signals';
+import { RouterLink } from '@angular/router';
 import { EMPTY, catchError, map, switchMap, timer } from 'rxjs';
 import { APP_PATHS } from '../../app-paths';
 import { ConversationMessage, MessagesQuery } from '../../core/domain/models/models';
+import { CasesApi } from '../../core/domain/ports/cases-api.port';
 import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
 import { Avatar } from '../../shared/avatar';
 import { BackLink } from '../../shared/back-link';
@@ -14,6 +16,7 @@ const POLL_INTERVAL_MS = 5000;
 /** The first load takes the whole range of today (up to the server maximum); older pages are smaller. */
 const FIRST_PAGE_SIZE = 100;
 const OLDER_PAGE_SIZE = 30;
+const MAX_CASE_SUMMARY = 500;
 
 interface DateFilter {
   from: string;
@@ -51,7 +54,7 @@ function filterRange(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
 
 @Component({
   selector: 'app-conversation-thread-page',
-  imports: [DatePipe, FormField, Avatar, BackLink, StatusMessage],
+  imports: [DatePipe, FormField, RouterLink, Avatar, BackLink, StatusMessage],
   template: `
     <app-back-link [to]="paths.conversations" label="Volver a conversaciones" />
 
@@ -66,6 +69,49 @@ function filterRange(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
         </div>
       </header>
     }
+
+    <section class="mb-5" aria-label="Registrar caso para el call center">
+      @if (registeredCaseId(); as caseId) {
+        <p role="status" class="text-sm text-primary">
+          Caso registrado.
+          <a class="font-medium underline" [routerLink]="[paths.cases, caseId]">Ver el caso</a>
+        </p>
+      } @else if (!registering()) {
+        <button
+          type="button"
+          class="min-h-11 rounded-lg border border-line px-4 font-medium"
+          (click)="registering.set(true)"
+        >
+          Registrar caso
+        </button>
+      } @else {
+        <form class="flex flex-col gap-2 rounded-xl bg-surface p-4 shadow-panel" (submit)="registerCase($event)">
+          <label for="case-summary" class="text-sm font-medium">¿Qué debe resolver el call center?</label>
+          <input
+            id="case-summary"
+            type="text"
+            autocomplete="off"
+            class="min-h-11 rounded-lg border border-line bg-surface px-3"
+            [formField]="caseForm.summary"
+          />
+          @if (caseError(); as problem) {
+            <p role="alert" class="text-sm text-danger">{{ problem }}</p>
+          }
+          <div class="flex gap-2">
+            <button
+              type="submit"
+              class="min-h-11 rounded-lg bg-primary px-4 font-medium text-primary-fg disabled:opacity-60"
+              [disabled]="savingCase()"
+            >
+              {{ savingCase() ? 'Guardando…' : 'Guardar caso' }}
+            </button>
+            <button type="button" class="min-h-11 rounded-lg border border-line px-4 font-medium" (click)="cancelCase()">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      }
+    </section>
 
     <form class="mb-5 flex flex-wrap items-end gap-3" (submit)="applyFilter($event)" aria-label="Filtrar mensajes por fecha">
       <div class="flex flex-col gap-1">
@@ -152,6 +198,7 @@ function filterRange(filter: DateFilter): Pick<MessagesQuery, 'from' | 'to'> {
 })
 export class ConversationThreadPage {
   private readonly api = inject(ConversationsApi);
+  private readonly casesApi = inject(CasesApi);
 
   protected readonly paths = APP_PATHS;
 
@@ -187,6 +234,29 @@ export class ConversationThreadPage {
       : { cursor: page.cursor, bounded: page.hasMore, exhausted: false };
   });
 
+  // Everything about "Registrar caso" belongs to the open conversation: opening another person starts it clean.
+  protected readonly registering = linkedSignal(() => {
+    this.personId();
+    return false;
+  });
+  private readonly caseModel = linkedSignal(() => {
+    this.personId();
+    return { summary: '' };
+  });
+  protected readonly caseForm = form(this.caseModel);
+  protected readonly savingCase = linkedSignal(() => {
+    this.personId();
+    return false;
+  });
+  protected readonly caseError = linkedSignal(() => {
+    this.personId();
+    return '';
+  });
+  protected readonly registeredCaseId = linkedSignal<string | null>(() => {
+    this.personId();
+    return null;
+  });
+
   protected readonly loadingMore = signal(false);
   protected readonly loadMoreFailed = signal(false);
 
@@ -208,6 +278,45 @@ export class ConversationThreadPage {
         // A poll that was in flight when the person or the filter changed must not leak into the new view.
         if (personId === this.personId() && !this.isFiltered()) this.appendNew(items);
       });
+  }
+
+  protected registerCase(event: Event): void {
+    event.preventDefault();
+    const summary = this.caseModel().summary.trim();
+    if (!summary) {
+      this.caseError.set('Describe qué debe resolver el call center.');
+      return;
+    }
+    if (summary.length > MAX_CASE_SUMMARY) {
+      this.caseError.set(`El resumen admite hasta ${MAX_CASE_SUMMARY} caracteres.`);
+      return;
+    }
+    if (this.savingCase()) return;
+
+    const personId = this.personId();
+    this.savingCase.set(true);
+    this.caseError.set('');
+    this.casesApi.create(personId, summary).subscribe({
+      next: (created) => {
+        // The agent moved to another person while this was in flight: the case was saved, but this view is not its own.
+        if (personId !== this.personId()) return;
+        this.savingCase.set(false);
+        this.registeredCaseId.set(created.id);
+        this.registering.set(false);
+        this.caseModel.set({ summary: '' });
+      },
+      error: (error: Error) => {
+        if (personId !== this.personId()) return;
+        this.savingCase.set(false);
+        this.caseError.set(error.message);
+      },
+    });
+  }
+
+  protected cancelCase(): void {
+    this.registering.set(false);
+    this.caseError.set('');
+    this.caseModel.set({ summary: '' });
   }
 
   protected applyFilter(event: Event): void {

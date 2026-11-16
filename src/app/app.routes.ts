@@ -1,10 +1,12 @@
 import { Routes } from '@angular/router';
 import { ROUTE_PREFIX } from './app-paths';
+import { CasesApi } from './core/domain/ports/cases-api.port';
 import { ConversationsApi } from './core/domain/ports/conversations-api.port';
 import { InstructionsApi } from './core/domain/ports/instructions-api.port';
 import { KnowledgeApi } from './core/domain/ports/knowledge-api.port';
 import { StatsApi } from './core/domain/ports/stats-api.port';
 import { WhatsAppNumbersApi } from './core/domain/ports/whatsapp-numbers-api.port';
+import { HttpCasesApi } from './infrastructure/http/http-cases-api';
 import { HttpConversationsApi } from './infrastructure/http/http-conversations-api';
 import { HttpInstructionsApi } from './infrastructure/http/http-instructions-api';
 import { HttpKnowledgeApi } from './infrastructure/http/http-knowledge-api';
@@ -24,6 +26,7 @@ export const routes: Routes = [
       { provide: InstructionsApi, useClass: HttpInstructionsApi },
       { provide: WhatsAppNumbersApi, useClass: HttpWhatsAppNumbersApi },
       { provide: ConversationsApi, useClass: HttpConversationsApi },
+      { provide: CasesApi, useClass: HttpCasesApi },
       { provide: KnowledgeApi, useClass: HttpKnowledgeApi },
       { provide: StatsApi, useClass: HttpStatsApi },
     ],
@@ -47,6 +50,16 @@ export const routes: Routes = [
         path: 'numbers/:id',
         title: 'Detalle del número',
         loadComponent: () => import('./features/numbers/number-detail-page').then((m) => m.NumberDetailPage),
+      },
+      {
+        path: 'cases',
+        title: 'Casos',
+        loadComponent: () => import('./features/cases/cases-page').then((m) => m.CasesPage),
+      },
+      {
+        path: 'cases/:id',
+        title: 'Detalle del caso',
+        loadComponent: () => import('./features/cases/case-detail-page').then((m) => m.CaseDetailPage),
       },
       {
         path: 'conversations',

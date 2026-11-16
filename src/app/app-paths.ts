@@ -9,4 +9,5 @@ export const APP_PATHS = {
   instructions: `/${ROUTE_PREFIX}/instructions`,
   numbers: `/${ROUTE_PREFIX}/numbers`,
   conversations: `/${ROUTE_PREFIX}/conversations`,
+  cases: `/${ROUTE_PREFIX}/cases`,
 } as const;
