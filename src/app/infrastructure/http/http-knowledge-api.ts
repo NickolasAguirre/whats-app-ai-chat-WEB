@@ -5,6 +5,7 @@ import { KnowledgeItem, NoteInput, UploadEvent } from '../../core/domain/models/
 import { KnowledgeApi } from '../../core/domain/ports/knowledge-api.port';
 import { toApiError } from './api-error';
 import { BOT_API_URL } from './bot-api-url';
+import { tenantHeaders } from './tenant-header';
 
 type KnowledgeItemDto = Omit<KnowledgeItem, 'createdAt'> & { createdAt: string };
 
@@ -18,7 +19,7 @@ export class HttpKnowledgeApi extends KnowledgeApi {
   private readonly url = `${inject(BOT_API_URL)}/admin/knowledge`;
 
   override list(): Observable<KnowledgeItem[]> {
-    return this.http.get<KnowledgeItemDto[]>(this.url).pipe(
+    return this.http.get<KnowledgeItemDto[]>(this.url, { headers: tenantHeaders() }).pipe(
       map((items) => items.map(toKnowledgeItem)),
       catchError((error) => throwError(() => toApiError(error))),
     );
@@ -28,7 +29,7 @@ export class HttpKnowledgeApi extends KnowledgeApi {
     const form = new FormData();
     form.append('file', file, file.name);
 
-    return this.http.post<KnowledgeItemDto>(`${this.url}/files`, form, { reportProgress: true, observe: 'events' }).pipe(
+    return this.http.post<KnowledgeItemDto>(`${this.url}/files`, form, { reportProgress: true, observe: 'events', headers: tenantHeaders() }).pipe(
       map((event): UploadEvent | null => {
         if (event.type === HttpEventType.UploadProgress) {
           return { type: 'progress', percent: event.total ? Math.round((100 * event.loaded) / event.total) : 0 };
@@ -44,20 +45,20 @@ export class HttpKnowledgeApi extends KnowledgeApi {
   }
 
   override createNote(input: NoteInput): Observable<KnowledgeItem> {
-    return this.http.post<KnowledgeItemDto>(`${this.url}/notes`, input).pipe(
+    return this.http.post<KnowledgeItemDto>(`${this.url}/notes`, input, { headers: tenantHeaders() }).pipe(
       map(toKnowledgeItem),
       catchError((error) => throwError(() => toApiError(error))),
     );
   }
 
   override updateNote(id: string, input: NoteInput): Observable<KnowledgeItem> {
-    return this.http.put<KnowledgeItemDto>(`${this.url}/notes/${encodeURIComponent(id)}`, input).pipe(
+    return this.http.put<KnowledgeItemDto>(`${this.url}/notes/${encodeURIComponent(id)}`, input, { headers: tenantHeaders() }).pipe(
       map(toKnowledgeItem),
       catchError((error) => throwError(() => toApiError(error))),
     );
   }
 
   override remove(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.url}/${encodeURIComponent(id)}`).pipe(catchError((error) => throwError(() => toApiError(error))));
+    return this.http.delete<void>(`${this.url}/${encodeURIComponent(id)}`, { headers: tenantHeaders() }).pipe(catchError((error) => throwError(() => toApiError(error))));
   }
 }

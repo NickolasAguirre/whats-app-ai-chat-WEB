@@ -153,3 +153,30 @@ describe('toApiError', () => {
     expect(toApiError('algo').message).toBe('Ocurrió un error inesperado.');
   });
 });
+
+describe('HttpKnowledgeApi tenant header', () => {
+  afterEach(() => localStorage.removeItem('container.tenantCode'));
+
+  it('sends the saved tenant code as X-Tenant-Id on every knowledge call', () => {
+    localStorage.setItem('container.tenantCode', 'acme');
+    const { knowledge, http } = setup();
+
+    knowledge.list().subscribe();
+    knowledge.createNote({ title: 't', content: 'c' }).subscribe();
+    knowledge.updateNote('d1', { title: 't', content: 'c' }).subscribe();
+    knowledge.remove('d1').subscribe();
+    knowledge.upload(new File(['x'], 'a.txt')).subscribe();
+
+    const requests = http.match(() => true);
+    expect(requests).toHaveLength(5);
+    expect(requests.every((request) => request.request.headers.get('X-Tenant-Id') === 'acme')).toBe(true);
+  });
+
+  it('falls back to the default tenant when nothing is saved', () => {
+    const { knowledge, http } = setup();
+
+    knowledge.list().subscribe();
+
+    expect(http.expectOne(`${BASE}/admin/knowledge`).request.headers.get('X-Tenant-Id')).toBe('default');
+  });
+});

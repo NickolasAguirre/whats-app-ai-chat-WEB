@@ -16,9 +16,9 @@ import { MockWhatsAppNumbersApi } from './infrastructure/mock/mock-whatsapp-numb
  * works wherever it is mounted. Layout, login, session and theme belong to the container.
  */
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+  { path: 'whatsapp', pathMatch: 'full', redirectTo: 'whatsapp/dashboard' },
   {
-    path: '',
+    path: 'whatsapp',
     providers: [
       { provide: InstructionsApi, useClass: HttpInstructionsApi },
       { provide: WhatsAppNumbersApi, useClass: MockWhatsAppNumbersApi },
