@@ -1,5 +1,6 @@
 import { Component, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { APP_PATHS } from '../../app-paths';
 import { WhatsAppNumbersApi } from '../../core/domain/ports/whatsapp-numbers-api.port';
 import { BackLink } from '../../shared/back-link';
 import { PageHeader } from '../../shared/page-header';
@@ -9,7 +10,7 @@ import { StatusMessage } from '../../shared/status-message';
   selector: 'app-number-detail-page',
   imports: [BackLink, PageHeader, StatusMessage],
   template: `
-    <app-back-link to="/numbers" label="Volver a números" />
+    <app-back-link [to]="paths.numbers" label="Volver a números" />
 
     @if (number.isLoading()) {
       <app-status-message kind="loading" text="Cargando número" [count]="2" />
@@ -48,6 +49,7 @@ import { StatusMessage } from '../../shared/status-message';
   `,
 })
 export class NumberDetailPage {
+  protected readonly paths = APP_PATHS;
   private readonly api = inject(WhatsAppNumbersApi);
 
   readonly id = input.required<string>();

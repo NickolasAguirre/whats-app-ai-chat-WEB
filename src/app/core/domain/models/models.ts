@@ -31,6 +31,25 @@ export interface ConversationMessage {
   timestamp: Date;
 }
 
+export interface MessagesQuery {
+  /** Include messages from this instant. */
+  from?: Date;
+  /** Exclude messages from this instant. */
+  to?: Date;
+  /** Cursor of the oldest message already loaded: only older ones are returned. */
+  before?: string;
+  limit?: number;
+}
+
+export interface MessagesPage {
+  /** Oldest to newest. */
+  items: ConversationMessage[];
+  /** Cursor of the oldest message in this page, null when the page is empty. */
+  cursor: string | null;
+  /** True when more messages exist inside the requested range. */
+  hasMore: boolean;
+}
+
 export type KnowledgeFileKind = 'pdf' | 'spreadsheet' | 'image' | 'text';
 export type KnowledgeKind = KnowledgeFileKind | 'note';
 export type KnowledgeStatus = 'processing' | 'ready' | 'failed';

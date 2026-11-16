@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { map, switchMap, timer } from 'rxjs';
+import { APP_PATHS } from '../../app-paths';
 import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
 import { Avatar } from '../../shared/avatar';
 import { formatMessageTime } from '../../shared/format-time';
@@ -21,7 +22,7 @@ const POLL_INTERVAL_MS = 10_000;
           <p class="text-sm text-muted">Se actualiza sola.</p>
         </div>
         <a
-          routerLink="/conversations"
+          [routerLink]="paths.conversations"
           class="-mr-2 inline-flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm font-medium text-primary transition hover:bg-primary-soft active:scale-[0.98]"
         >
           Ver todas
@@ -59,7 +60,7 @@ const POLL_INTERVAL_MS = 10_000;
           @for (person of people.value(); track person.id) {
             <li>
               <a
-                [routerLink]="['/conversations', person.id]"
+                [routerLink]="[paths.conversations, person.id]"
                 class="flex min-h-16 items-center gap-3 px-4 py-3 transition hover:bg-primary-soft/60 active:bg-primary-soft sm:px-6"
               >
                 <app-avatar [name]="person.name ?? person.phoneNumber" />
@@ -81,6 +82,7 @@ const POLL_INTERVAL_MS = 10_000;
   `,
 })
 export class RecentConversations {
+  protected readonly paths = APP_PATHS;
   private readonly api = inject(ConversationsApi);
 
   protected readonly placeholders = [0, 1, 2, 3];

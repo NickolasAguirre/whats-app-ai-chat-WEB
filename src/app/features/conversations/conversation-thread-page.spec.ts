@@ -1,0 +1,271 @@
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { Observable, Subject, of, throwError } from 'rxjs';
+import { ConversationMessage, MessagesPage, MessagesQuery } from '../../core/domain/models/models';
+import { ConversationsApi } from '../../core/domain/ports/conversations-api.port';
+import { ConversationThreadPage } from './conversation-thread-page';
+
+function message(id: string, minutesAgo: number): ConversationMessage {
+  return {
+    id,
+    personId: 'p1',
+    role: 'user',
+    text: `Texto ${id}`,
+    timestamp: new Date(Date.now() - minutesAgo * 60_000),
+  };
+}
+
+function page(items: ConversationMessage[], hasMore: boolean): MessagesPage {
+  return { items, cursor: items.length ? `cursor-${items[0].id}` : null, hasMore };
+}
+
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+describe('ConversationThreadPage', () => {
+  function setup(listMessages: (personId: string, query?: MessagesQuery) => Observable<MessagesPage>) {
+    const api = {
+      getPerson: vi.fn(() => of({ id: 'p1', phoneNumber: '+57 300 000 0001', lastMessageAt: new Date(), lastMessagePreview: '' })),
+      listMessages: vi.fn(listMessages),
+    };
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: ConversationsApi, useValue: api }] });
+    const fixture = TestBed.createComponent(ConversationThreadPage);
+    fixture.componentRef.setInput('personId', 'p1');
+    const element = fixture.nativeElement as HTMLElement;
+    const button = (label: string) =>
+      [...element.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes(label));
+    const settle = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+    return { api, fixture, element, button, settle };
+  }
+
+  it("loads only today's messages first", async () => {
+    const { api, element, settle } = setup(() => of(page([message('a', 20), message('b', 10)], false)));
+    await settle();
+
+    expect(api.listMessages).toHaveBeenCalledTimes(1);
+    expect(api.listMessages).toHaveBeenCalledWith('p1', { from: startOfToday(), limit: 100 });
+    expect(element.textContent).toContain('Texto a');
+    expect(element.textContent).toContain('Texto b');
+    expect(element.textContent).toContain('Mostrando los mensajes de hoy');
+    expect(element.querySelector('a')?.getAttribute('href')).toBe('/whatsapp/conversations');
+  });
+
+  it('shows an empty-today state and still offers earlier messages', async () => {
+    const { element, button, settle } = setup(() => of(page([], false)));
+    await settle();
+
+    expect(element.textContent).toContain('No hay mensajes de hoy');
+    expect(button('Cargar mensajes anteriores')).toBeDefined();
+  });
+
+  it('loads earlier days with the cursor, prepends them and hides the button when history ends', async () => {
+    const earlier = [message('old1', 2000), message('old2', 1990)];
+    const { api, element, button, settle } = setup((_, query) =>
+      query?.before ? of(page(earlier, false)) : of(page([message('today', 5)], false)),
+    );
+    await settle();
+
+    button('Cargar mensajes anteriores')!.click();
+    await settle();
+
+    expect(api.listMessages).toHaveBeenLastCalledWith('p1', { from: undefined, to: undefined, before: 'cursor-today', limit: 30 });
+    const texts = [...element.querySelectorAll('ol li')].map((item) => item.textContent ?? '');
+    expect(texts[0]).toContain('Texto old1');
+    expect(texts.at(-1)).toContain('Texto today');
+    expect(button('Cargar mensajes anteriores')).toBeUndefined();
+  });
+
+  it('keeps the same day bound while today still has more messages', async () => {
+    const { api, button, settle } = setup((_, query) =>
+      query?.before ? of(page([message('a', 40)], false)) : of(page([message('b', 5)], true)),
+    );
+    await settle();
+
+    button('Cargar mensajes anteriores')!.click();
+    await settle();
+
+    expect(api.listMessages).toHaveBeenLastCalledWith('p1', { from: startOfToday(), to: undefined, before: 'cursor-b', limit: 30 });
+    expect(button('Cargar mensajes anteriores')).toBeDefined();
+  });
+
+  it('keeps the loaded messages and offers another try when loading earlier fails', async () => {
+    const { element, button, settle } = setup((_, query) =>
+      query?.before ? throwError(() => new Error('boom')) : of(page([message('today', 5)], false)),
+    );
+    await settle();
+
+    button('Cargar mensajes anteriores')!.click();
+    await settle();
+
+    expect(element.querySelector('[role=alert]')?.textContent).toContain('No se pudieron cargar los mensajes anteriores');
+    expect(element.textContent).toContain('Texto today');
+    expect(button('Cargar mensajes anteriores')).toBeDefined();
+  });
+
+  it('shows the error state with retry when the first load fails', async () => {
+    const { element, button, settle } = setup(() => throwError(() => new Error('boom')));
+    await settle();
+
+    expect(element.querySelector('[role=alert]')?.textContent).toContain('No se pudieron cargar los mensajes');
+    expect(button('Reintentar')).toBeDefined();
+  });
+
+  it('applies a date range as from and the start of the day after "Hasta"', async () => {
+    const { api, element, fixture, button, settle } = setup(() => of(page([message('a', 20)], false)));
+    await settle();
+
+    const from = element.querySelector<HTMLInputElement>('#from')!;
+    const to = element.querySelector<HTMLInputElement>('#to')!;
+    from.value = '2026-11-10';
+    from.dispatchEvent(new Event('input'));
+    to.value = '2026-11-12';
+    to.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await settle();
+
+    expect(api.listMessages).toHaveBeenLastCalledWith('p1', {
+      from: new Date(2026, 10, 10),
+      to: new Date(2026, 10, 13),
+      limit: 100,
+    });
+    expect(element.textContent).toContain('Mostrando los mensajes del rango elegido');
+    expect(button('Ver solo hoy')).toBeDefined();
+  });
+
+  it('rejects a range whose start is after its end without calling the bot', async () => {
+    const { api, element, fixture, settle } = setup(() => of(page([], false)));
+    await settle();
+    api.listMessages.mockClear();
+
+    const from = element.querySelector<HTMLInputElement>('#from')!;
+    const to = element.querySelector<HTMLInputElement>('#to')!;
+    from.value = '2026-11-12';
+    from.dispatchEvent(new Event('input'));
+    to.value = '2026-11-10';
+    to.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await settle();
+
+    expect(element.querySelector('[role=alert]')?.textContent).toContain('"Desde" debe ser anterior');
+    expect(api.listMessages).not.toHaveBeenCalled();
+  });
+
+  it('appends new messages from polling without repeating the ones already shown', async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const { element, settle } = setup(() => {
+        calls += 1;
+        return calls === 1
+          ? of(page([message('a', 10)], false))
+          : of(page([message('a', 10), message('new', 0)], false));
+      });
+      await settle();
+
+      await vi.advanceTimersByTimeAsync(5000);
+      await settle();
+
+      const items = [...element.querySelectorAll('ol li')].map((item) => item.textContent ?? '');
+      expect(items).toHaveLength(2);
+      expect(items[1]).toContain('Texto new');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  function submitRange(
+    element: HTMLElement,
+    fixture: { detectChanges: () => void },
+    from: string,
+    to: string,
+  ) {
+    const fromInput = element.querySelector<HTMLInputElement>('#from')!;
+    const toInput = element.querySelector<HTMLInputElement>('#to')!;
+    fromInput.value = from;
+    fromInput.dispatchEvent(new Event('input'));
+    toInput.value = to;
+    toInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+  }
+
+  it('keeps the range bounds when loading earlier inside a filter and hides the button at its end', async () => {
+    const { api, element, fixture, button, settle } = setup((_, query) =>
+      query?.before ? of(page([message('older', 3000)], false)) : of(page([message('a', 20)], true)),
+    );
+    await settle();
+    submitRange(element, fixture, '2026-11-10', '2026-11-12');
+    await settle();
+
+    button('Cargar mensajes anteriores')!.click();
+    await settle();
+
+    expect(api.listMessages).toHaveBeenLastCalledWith('p1', {
+      from: new Date(2026, 10, 10),
+      to: new Date(2026, 10, 13),
+      before: 'cursor-a',
+      limit: 30,
+    });
+    expect(button('Cargar mensajes anteriores')).toBeUndefined();
+  });
+
+  it('goes back to today with "Ver solo hoy"', async () => {
+    const { api, element, fixture, button, settle } = setup(() => of(page([message('a', 20)], false)));
+    await settle();
+    submitRange(element, fixture, '2026-11-10', '2026-11-12');
+    await settle();
+
+    button('Ver solo hoy')!.click();
+    await settle();
+
+    expect(api.listMessages).toHaveBeenLastCalledWith('p1', { from: startOfToday(), limit: 100 });
+    expect(element.textContent).toContain('Mostrando los mensajes de hoy');
+    expect(button('Ver solo hoy')).toBeUndefined();
+  });
+
+  it('drops an earlier page that arrives after the filter changed and unlocks the button', async () => {
+    const late = new Subject<MessagesPage>();
+    const { element, fixture, button, settle } = setup((_, query) =>
+      // The filtered range (starting on the 10th) still has older messages; today does not.
+      query?.before ? late : of(page([message('today', 5)], query?.from?.getDate() === 10)),
+    );
+    await settle();
+
+    button('Cargar mensajes anteriores')!.click();
+    await settle();
+    submitRange(element, fixture, '2026-11-10', '2026-11-12');
+    await settle();
+    late.next(page([message('stale', 4000)], false));
+    late.complete();
+    await settle();
+
+    expect(element.textContent).not.toContain('Texto stale');
+    expect(button('Cargando…')).toBeUndefined();
+    expect(button('Cargar mensajes anteriores')).toBeDefined();
+  });
+
+  it('does not poll while a range filter is applied', async () => {
+    vi.useFakeTimers();
+    try {
+      const { api, element, fixture, settle } = setup(() => of(page([message('a', 20)], false)));
+      await settle();
+      submitRange(element, fixture, '2026-11-10', '2026-11-12');
+      await settle();
+      api.listMessages.mockClear();
+
+      await vi.advanceTimersByTimeAsync(15000);
+
+      expect(api.listMessages).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

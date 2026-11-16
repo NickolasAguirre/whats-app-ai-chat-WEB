@@ -30,10 +30,10 @@ describe('RecentConversations', () => {
 
     const links = [...element.querySelectorAll<HTMLAnchorElement>('ul a')];
     expect(links).toHaveLength(6);
-    expect(links[0].getAttribute('href')).toBe('/conversations/p0');
+    expect(links[0].getAttribute('href')).toBe('/whatsapp/conversations/p0');
     expect(element.textContent).toContain('Cliente 0');
     expect(element.textContent).toContain('+57 300 000 001');
-    expect(element.querySelector('a[href="/conversations"]')?.textContent).toContain('Ver todas');
+    expect(element.querySelector('a[href="/whatsapp/conversations"]')?.textContent).toContain('Ver todas');
   });
 
   it('explains the empty state', async () => {

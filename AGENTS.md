@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-11-15 against d6b54d1 (working tree has uncommitted changes). Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-11-15 against 39e3650 (working tree has uncommitted changes). Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## whatsapp-chat-bot-WEB
 
@@ -26,6 +26,7 @@ Business module of the WhatsApp bot admin panel: a Native Federation remote (Ang
 
 - Providers (APIs) travel with the route in `app.routes.ts`. The host must supply `withComponentInputBinding()`, Spanish `LOCALE_ID`, and `provideHttpClient`; a route cannot carry them.
 - `app.config.ts` and `src/styles.css` serve only the standalone view; keep `styles.css` in sync with the host's tokens.
-- Data goes through ports in `core/domain/` (`abstract class`) with adapters in `infrastructure/mock/` or `infrastructure/http/`; switching mock → HTTP means changing providers in `app.routes.ts`.
+- Data goes through ports in `core/domain/` (`abstract class`) with HTTP adapters in `infrastructure/http/`, wired as providers in `app.routes.ts`. There are no mock adapters; tests use fakes of the port.
+- Build every in-module link from `APP_PATHS` (`src/app/app-paths.ts`), never a hardcoded `/conversations`: the routes live under the `whatsapp` prefix and `app-paths.spec.ts` checks the targets exist.
 
 <!-- /bmad:context -->

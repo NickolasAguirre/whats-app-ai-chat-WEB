@@ -1,14 +1,15 @@
 import { Routes } from '@angular/router';
+import { ROUTE_PREFIX } from './app-paths';
 import { ConversationsApi } from './core/domain/ports/conversations-api.port';
 import { InstructionsApi } from './core/domain/ports/instructions-api.port';
 import { KnowledgeApi } from './core/domain/ports/knowledge-api.port';
 import { StatsApi } from './core/domain/ports/stats-api.port';
 import { WhatsAppNumbersApi } from './core/domain/ports/whatsapp-numbers-api.port';
-import { MockConversationsApi } from './infrastructure/mock/mock-conversations-api';
+import { HttpConversationsApi } from './infrastructure/http/http-conversations-api';
 import { HttpInstructionsApi } from './infrastructure/http/http-instructions-api';
 import { HttpKnowledgeApi } from './infrastructure/http/http-knowledge-api';
-import { MockStatsApi } from './infrastructure/mock/mock-stats-api';
-import { MockWhatsAppNumbersApi } from './infrastructure/mock/mock-whatsapp-numbers-api';
+import { HttpStatsApi } from './infrastructure/http/http-stats-api';
+import { HttpWhatsAppNumbersApi } from './infrastructure/http/http-whatsapp-numbers-api';
 
 /**
  * Business screens of the bot panel. This file is what the module exposes to the layout container
@@ -16,15 +17,15 @@ import { MockWhatsAppNumbersApi } from './infrastructure/mock/mock-whatsapp-numb
  * works wherever it is mounted. Layout, login, session and theme belong to the container.
  */
 export const routes: Routes = [
-  { path: 'whatsapp', pathMatch: 'full', redirectTo: 'whatsapp/dashboard' },
+  { path: ROUTE_PREFIX, pathMatch: 'full', redirectTo: `${ROUTE_PREFIX}/dashboard` },
   {
-    path: 'whatsapp',
+    path: ROUTE_PREFIX,
     providers: [
       { provide: InstructionsApi, useClass: HttpInstructionsApi },
-      { provide: WhatsAppNumbersApi, useClass: MockWhatsAppNumbersApi },
-      { provide: ConversationsApi, useClass: MockConversationsApi },
+      { provide: WhatsAppNumbersApi, useClass: HttpWhatsAppNumbersApi },
+      { provide: ConversationsApi, useClass: HttpConversationsApi },
       { provide: KnowledgeApi, useClass: HttpKnowledgeApi },
-      { provide: StatsApi, useClass: MockStatsApi },
+      { provide: StatsApi, useClass: HttpStatsApi },
     ],
     children: [
       {
